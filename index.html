@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lab Wiki - 实验室智能知识库</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #f8fafc; }
+        .markdown-body h1 { font-size: 1.5em; font-weight: 700; margin-bottom: 0.5em; margin-top: 1em; }
+        .markdown-body h2 { font-size: 1.25em; font-weight: 600; margin-bottom: 0.5em; margin-top: 1em; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.3em; }
+        .markdown-body p { margin-bottom: 1em; line-height: 1.6; color: #334155; }
+        .markdown-body ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; }
+        .markdown-body ol { list-style-type: decimal; padding-left: 1.5em; margin-bottom: 1em; }
+        .markdown-body code { background-color: #f1f5f9; padding: 0.2em 0.4em; border-radius: 4px; font-family: monospace; font-size: 0.9em; color: #0f172a; }
+        .markdown-body pre { background-color: #1e293b; color: #f8fafc; padding: 1em; border-radius: 8px; overflow-x: auto; margin-bottom: 1em; }
+        .markdown-body blockquote { border-left: 4px solid #3b82f6; padding-left: 1em; color: #475569; font-style: italic; background-color: #eff6ff; padding: 0.5em 1em; border-radius: 0 4px 4px 0; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // --- Inline Icon System (Replaces External Dependency) ---
+        const Icon = ({ children, size = 24, className = "", ...props }) => (
+            <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width={size} 
+                height={size} 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                className={className}
+                {...props}
+            >
+                {children}
+            </svg>
+        );
+
+        const Icons = {
+            LayoutDashboard: (props) => <Icon {...props}><rect width="7" height="9" x="3" y="3" rx="1" /><rect width="7" height="5" x="14" y="3" rx="1" /><rect width="7" height="9" x="14" y="12" rx="1" /><rect width="7" height="5" x="3" y="16" rx="1" /></Icon>,
+            FlaskConical: (props) => <Icon {...props}><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></Icon>,
+            Microscope: (props) => <Icon {...props}><path d="M6 18h8"/><path d="M3 22h18"/><path d="M14 22a7 7 0 1 0 0-14h-1"/><path d="M9 14h2"/><path d="M12 6 6 12"/></Icon>,
+            ShieldAlert: (props) => <Icon {...props}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="M12 8v4"/><path d="M12 16h.01"/></Icon>,
+            FileText: (props) => <Icon {...props}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></Icon>,
+            BookOpen: (props) => <Icon {...props}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></Icon>,
+            Menu: (props) => <Icon {...props}><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></Icon>,
+            X: (props) => <Icon {...props}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>,
+            Search: (props) => <Icon {...props}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></Icon>,
+            ChevronRight: (props) => <Icon {...props}><path d="m9 18 6-6-6-6"/></Icon>,
+            CheckCircle: (props) => <Icon {...props}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></Icon>,
+            AlertTriangle: (props) => <Icon {...props}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></Icon>,
+            PenTool: (props) => <Icon {...props}><path d="m12 19 7-7 3 3-7 7-3-3z"/><path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="m2 2 7.586 7.586"/><circle cx="11" cy="11" r="2"/></Icon>,
+            Settings: (props) => <Icon {...props}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></Icon>
+        };
+
+        const { 
+            BookOpen, FlaskConical, AlertTriangle, Search, 
+            Menu, X, ChevronRight, CheckCircle, ShieldAlert,
+            Microscope, FileText, Settings, PenTool, LayoutDashboard
+        } = Icons;
+
+        // Mock Data based on user uploaded files
+        const wikiData = [
+            {
+                id: 'sop-001',
+                title: 'TiO2 溶胶-凝胶 (Sol-Gel) 制备标准流程',
+                category: 'sops',
+                tags: ['薄膜制备', '化学合成', 'TiO2'],
+                content: `
+# TiO2 Sol-Gel 制备 SOP
+
+**版本**: 2.0 | **最后更新**: 2026/01/19
+**适用仪器**: 磁力搅拌器, 旋涂仪
+
+## 1. 试剂准备
+- **钛酸四丁酯 (Tetrabutyl titanate)**: 前驱体，极易水解，需密封保存。
+- **无水乙醇 (Absolute Ethanol)**: 溶剂。
+- **乙酸 (Acetic Acid)**: 抑制剂，控制水解速率。
+- **去离子水**: 水解剂。
+- **Triton X-100**: 表面活性剂（可选，防裂纹）。
+
+## 2. 配制步骤 (以 100mL 为例)
+1. **底液**: 在烧杯中量取 **50 mL** 无水乙醇。
+2. **加料 (关键顺序)**: 在磁力搅拌下，依次缓慢加入：
+    - 6.8 mL 钛酸四丁酯
+    - 5 mL 乙酸
+    - 0.36 mL 去离子水
+    - 1 滴 Triton X-100
+3. **定容**: 加入无水乙醇至总体积 100 mL。
+
+## 3. 老化与旋涂
+- **搅拌**: 60°C 搅拌 1小时，随后室温搅拌 1小时。
+- **旋涂参数**: 
+    - 滴加量: 覆盖基底（约 1-2 mL）
+    - 转速: **4000 rpm**
+    - 时间: **30 s**
+    - 加速度: 2000 rpm/s
+
+> **⚠️ 安全警告**: 钛酸四丁酯水解会产生丁醇，且有刺激性气味。乙酸具有腐蚀性。**全程必须在通风橱内操作。**
+                `,
+                checklist: [
+                    "检查乙醇是否为无水级 (含水会导致过早沉淀)",
+                    "开启通风橱",
+                    "佩戴丁腈手套和护目镜",
+                    "按照 乙醇 -> 钛前驱体 -> 酸 -> 水 的顺序加料"
+                ]
+            },
+            {
+                id: 'sop-002',
+                title: 'PDMS 紫外接枝改性 (UV-Grafting)',
+                category: 'sops',
+                tags: ['表面改性', 'PDMS', 'UV'],
+                content: `
+# UV 诱导 PDMS 表面接枝 SOP
+
+**原理**: 利用 UV-Ozone 活化 PDMS 表面产生自由基，引发单体聚合。
+
+## 材料
+- PDMS 基底 (Sylgard 184, 10:1 固化)
+- 亲水单体 (如 PEG-methacrylate) 或 疏水硅油
+- 光引发剂 (Benzophenone, BP)
+
+## 操作流程
+1. **基底清洗**: 乙醇超声 5 min，氮气吹干。
+2. **预处理**: 将 PDMS 在 BP 乙醇溶液 (10 wt%) 中浸泡 15 min，取出吹干。
+3. **单体覆盖**: 将单体溶液滴加在 PDMS 表面，覆盖石英玻璃片以隔绝氧气（氧气会阻聚）。
+4. **UV 辐照**: 
+    - 波长: 365 nm
+    - 能量: 20 mW/cm²
+    - 时间: **15 - 30 min**
+5. **后清洗**: 大量乙醇和水冲洗，去除未反应单体。
+
+## 质量控制 (QC)
+- **接触角测试**: 改性后水接触角应显著变化（亲水改性 < 20°，接枝硅油滑移面 < 5° 滞后）。
+                `,
+                checklist: [
+                    "确认紫外灯波长为 365nm (254nm可能会降解PDMS)",
+                    "覆盖石英片时确保无气泡",
+                    "清洗步骤必须彻底，否则测试结果不准确"
+                ]
+            },
+            {
+                id: 'instr-001',
+                title: '接触角测量仪操作与维护 (Krüss/DataPhysics)',
+                category: 'instruments',
+                tags: ['表征', '润湿性', '维护'],
+                content: `
+# 接触角测量仪标准操作 & 维护
+
+## 1. 开机准备
+- 打开光源，调整亮度至图像直方图清晰。
+- **校准**: 每周一检查载物台水平度（使用气泡水平仪）。
+
+## 2. 静态接触角测试 (Sessile Drop)
+1. **加液**: 使用微量进样器，生成 **2-5 μL** 液滴。
+2. **落滴**: 缓慢抬升载物台，使样品接触悬滴，然后下降载物台使液滴分离。**禁止让液滴从高处坠落。**
+3. **拟合**: 
+    - 接触角 < 20°: 使用 Circle (圆法) 或 TrueDrop。
+    - 接触角 > 20°: 使用 **Young-Laplace** 拟合（更准确）。
+
+## 3. 关键维护 (Missing Link)
+> **痛点**: 许多测试误差来源于针头污染。
+
+- **针头清洗 SOP**:
+    1. 每次测试疏水液（如油、硅烷）后。
+    2. 用 丙酮 -> 乙醇 -> 去离子水 依次超声清洗 5 分钟。
+    3. 氮气吹干。
+    4. **严禁**用纸巾直接擦拭针头尖端（会破坏疏水涂层或留纸屑）。
+
+## 4. 常见问题 (Troubleshooting)
+- **液滴左右不对称**: 载物台不水平，或样品表面不均匀（化学异质性）。
+- **液滴挂在针头上不下来**: 针头太粗（换小号，如 30G），或针头表面被污染（需清洗或疏水化处理）。
+                `,
+                checklist: [
+                    "检查光源亮度",
+                    "清洗进样针头",
+                    "确认基线 (Baseline) 自动识别是否正确",
+                    "记录室温和湿度 (写入实验报告)"
+                ]
+            },
+            {
+                id: 'safety-001',
+                title: '氟硅烷 (Fluorosilanes) 安全操作与废弃',
+                category: 'safety',
+                tags: ['EHS', '危化品', '废液'],
+                content: `
+# 氟硅烷 (FOTS, FDTS) 安全手册
+
+**危险性**: 
+- 对湿气敏感，水解产生 **HCl (氯化氢)** 或 HF (氢氟酸，视具体种类)。
+- 具有强烈的呼吸道刺激性和腐蚀性。
+
+## 操作规范
+1. **环境**: 必须在 **通风橱 (Fume Hood)** 内操作。
+2. **PPE**: 佩戴防毒面具（酸性气体滤毒盒）、双层手套、护目镜。
+3. **取样**: 使用干燥的玻璃注射器，动作迅速，用后立即密封瓶口（建议用 Parafilm）。
+
+## 废弃物处理 (Waste Disposal)
+- **严禁**倒入水槽！水解产物会腐蚀下水道。
+- **分类**: 
+    - 沾染硅烷的枪头/纸巾 -> **固体危险废物桶 (密封)**。
+    - 反应残液 -> **有机卤代废液桶**。
+- **泄漏处理**: 保持通风，撒上碳酸氢钠粉末中和酸性，再用吸附棉清理。
+                `,
+                checklist: [
+                    "通风橱已开启且运行正常",
+                    "已准备好废液桶",
+                    "了解洗眼器和紧急喷淋的位置"
+                ]
+            },
+             {
+                id: 'data-001',
+                title: '数据管理：命名与存储规范',
+                category: 'data',
+                tags: ['规范', '行政'],
+                content: `
+# 实验室数据管理规范
+
+为了保证数据的可追溯性，所有实验数据必须遵循以下命名规则。
+
+## 1. 文件命名 (Naming Convention)
+格式: \`日期_样品ID_测试条件_操作人\`
+- **日期**: YYYYMMDD (如 20260119)
+- **样品ID**: 简短编号 (如 TiO2-05)
+- **测试条件**: 描述关键参数 (如 Water_Advancing, 400C_Anneal)
+
+**示例**: 
+- \`20260119_PDMS-Graft-03_CA-Hysteresis_ZhangSan.xlsx\`
+- \`20260119_Glass-Ref_AFM-Roughness_LiSi.ibw\`
+
+## 2. 存储路径
+- **本地**: 仪器电脑 D:\\LabData\\2026\\你的姓名\\
+- **备份**: 每周五上传至实验室 NAS 或 OneDrive 共享文件夹。
+
+## 3. 实验记录本 (ELN)
+- 必须记录对应电子文件的文件名。
+- 记录环境参数（温度、湿度），这对接触角测试至关重要。
+                `,
+                checklist: [
+                    "按照规范命名文件",
+                    "原始数据(Raw Data)与处理数据(Processed)分文件夹存放",
+                    "完成数据备份"
+                ]
+            }
+        ];
+
+        // Components
+        const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }) => {
+            const menuItems = [
+                { id: 'dashboard', icon: LayoutDashboard, label: '概览 (Dashboard)' },
+                { id: 'sops', icon: FlaskConical, label: '标准操作 (SOPs)' },
+                { id: 'instruments', icon: Microscope, label: '仪器设备 (Instruments)' },
+                { id: 'safety', icon: ShieldAlert, label: '安全与EHS (Safety)' },
+                { id: 'data', icon: FileText, label: '数据规范 (Data)' },
+            ];
+
+            return (
+                <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-slate-900 text-slate-100 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0`}>
+                    <div className="flex items-center justify-between p-4 border-b border-slate-700">
+                        <div className="flex items-center gap-2 font-bold text-xl text-blue-400">
+                            <BookOpen size={24} />
+                            <span>LabWiki</span>
+                        </div>
+                        <button onClick={() => setIsOpen(false)} className="md:hidden text-slate-400 hover:text-white">
+                            <X size={24} />
+                        </button>
+                    </div>
+                    <nav className="p-4 space-y-2">
+                        {menuItems.map((item) => (
+                            <button
+                                key={item.id}
+                                onClick={() => { setActiveTab(item.id); setIsOpen(false); }}
+                                className={`flex items-center gap-3 w-full p-3 rounded-lg transition-colors ${activeTab === item.id ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+                            >
+                                <item.icon size={20} />
+                                <span className="text-sm font-medium">{item.label}</span>
+                            </button>
+                        ))}
+                    </nav>
+                    <div className="absolute bottom-4 left-4 right-4">
+                        <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
+                            <h4 className="text-xs font-semibold text-slate-500 uppercase mb-2">实验室状态</h4>
+                            <div className="flex items-center gap-2 text-xs text-green-400">
+                                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                                通风橱运行正常
+                            </div>
+                             <div className="flex items-center gap-2 text-xs text-yellow-400 mt-1">
+                                <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                                废液桶即将满 (80%)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const DocCard = ({ doc, onClick }) => (
+            <div onClick={onClick} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer group">
+                <div className="flex justify-between items-start mb-3">
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                        doc.category === 'safety' ? 'bg-red-100 text-red-700' : 
+                        doc.category === 'instruments' ? 'bg-purple-100 text-purple-700' : 
+                        doc.category === 'data' ? 'bg-gray-100 text-gray-700' :
+                        'bg-blue-100 text-blue-700'
+                    }`}>
+                        {doc.category.toUpperCase()}
+                    </span>
+                </div>
+                <h3 className="font-bold text-slate-800 text-lg mb-2 group-hover:text-blue-600 leading-tight">{doc.title}</h3>
+                <div className="flex flex-wrap gap-2 mt-4">
+                    {doc.tags.map(tag => (
+                        <span key={tag} className="text-xs text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">#{tag}</span>
+                    ))}
+                </div>
+            </div>
+        );
+
+        const DocViewer = ({ doc, onBack }) => {
+            const [checkedItems, setCheckedItems] = useState({});
+
+            const toggleCheck = (idx) => {
+                setCheckedItems(prev => ({...prev, [idx]: !prev[idx]}));
+            };
+
+            const progress = useMemo(() => {
+                if (!doc.checklist) return 0;
+                const checkedCount = Object.values(checkedItems).filter(Boolean).length;
+                return Math.round((checkedCount / doc.checklist.length) * 100);
+            }, [checkedItems, doc.checklist]);
+
+            // Simple markdown parser for demo purposes
+            const renderContent = (text) => {
+                return text.split('\n').map((line, i) => {
+                    if (line.startsWith('# ')) return <h1 key={i}>{line.replace('# ', '')}</h1>;
+                    if (line.startsWith('## ')) return <h2 key={i}>{line.replace('## ', '')}</h2>;
+                    if (line.startsWith('> ')) return <blockquote key={i}>{line.replace('> ', '')}</blockquote>;
+                    if (line.startsWith('- ')) return <li key={i} className="ml-4">{line.replace('- ', '')}</li>;
+                    if (line.trim() === '') return <br key={i} />;
+                    return <p key={i}>{line}</p>;
+                });
+            };
+
+            return (
+                <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                    <button onClick={onBack} className="flex items-center text-slate-500 hover:text-blue-600 mb-4 transition-colors">
+                        <ChevronRight className="rotate-180 mr-1" size={20} /> 返回列表
+                    </button>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Main Content */}
+                        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 p-8 markdown-body">
+                            {renderContent(doc.content)}
+                        </div>
+
+                        {/* Interactive Sidebar */}
+                        <div className="space-y-6">
+                            {/* Progress Card */}
+                            {doc.checklist && (
+                                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 sticky top-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                            <PenTool size={18} className="text-blue-500"/> 
+                                            操作检查表
+                                        </h3>
+                                        <span className="text-sm font-mono text-blue-600">{progress}%</span>
+                                    </div>
+                                    <div className="w-full bg-slate-100 rounded-full h-2 mb-6">
+                                        <div className="bg-blue-500 h-2 rounded-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {doc.checklist.map((item, idx) => (
+                                            <label key={idx} className="flex items-start gap-3 cursor-pointer group">
+                                                <div className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${checkedItems[idx] ? 'bg-green-500 border-green-500' : 'border-slate-300 bg-white group-hover:border-blue-400'}`}>
+                                                    {checkedItems[idx] && <CheckCircle size={14} className="text-white" />}
+                                                </div>
+                                                <input type="checkbox" className="hidden" onChange={() => toggleCheck(idx)} checked={!!checkedItems[idx]} />
+                                                <span className={`text-sm ${checkedItems[idx] ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{item}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Safety Alert (Dynamic) */}
+                            {doc.content.includes("安全") && (
+                                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
+                                    <div className="flex items-start gap-3">
+                                        <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={20} />
+                                        <div>
+                                            <h4 className="text-sm font-bold text-red-700 mb-1">EHS 风险提示</h4>
+                                            <p className="text-xs text-red-600 leading-relaxed">
+                                                该操作涉及危险化学品或高温设备。请务必确认您已阅读相关 MSDS 并穿戴适当的防护装备。
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const SafetyQuiz = () => {
+            const [score, setScore] = useState(0);
+            const [showResult, setShowResult] = useState(false);
+            const [currentQ, setCurrentQ] = useState(0);
+
+            const questions = [
+                {
+                    q: "处理氟硅烷 (Fluorosilanes) 时，必须在哪里操作？",
+                    options: ["实验台面上", "生物安全柜", "化学通风橱", "水槽边"],
+                    correct: 2
+                },
+                {
+                    q: "Piranha 洗液（浓硫酸+双氧水）废液应该如何处理？",
+                    options: ["直接倒入下水道", "盖紧瓶盖放入废液桶", "冷却并反应完全后，放入专用排气盖废液桶", "与有机溶剂混合"],
+                    correct: 2
+                },
+                {
+                    q: "接触角测试仪的针头如果被疏水材料污染，应该？",
+                    options: ["用纸用力擦", "用火烧", "用相应溶剂超声清洗", "直接扔掉"],
+                    correct: 2
+                }
+            ];
+
+            const handleAnswer = (idx) => {
+                if (idx === questions[currentQ].correct) setScore(score + 1);
+                if (currentQ < questions.length - 1) {
+                    setCurrentQ(currentQ + 1);
+                } else {
+                    setShowResult(true);
+                }
+            };
+
+            if (showResult) {
+                return (
+                    <div className="bg-white p-8 rounded-2xl shadow text-center border border-slate-200">
+                        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <ShieldAlert size={40} className="text-green-600" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-slate-800 mb-2">测试完成!</h2>
+                        <p className="text-slate-500 mb-6">你的得分: <span className="font-bold text-blue-600 text-xl">{score}/{questions.length}</span></p>
+                        <button onClick={() => {setScore(0); setCurrentQ(0); setShowResult(false)}} className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">重新测试</button>
+                    </div>
+                )
+            }
+
+            const q = questions[currentQ];
+            return (
+                <div className="bg-white p-8 rounded-2xl shadow border border-slate-200 max-w-2xl mx-auto">
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="font-bold text-lg text-slate-700">实验室准入安全测试</h3>
+                        <span className="text-sm text-slate-400">问题 {currentQ + 1} / {questions.length}</span>
+                    </div>
+                    <h4 className="text-xl font-medium text-slate-800 mb-8">{q.q}</h4>
+                    <div className="space-y-3">
+                        {q.options.map((opt, idx) => (
+                            <button 
+                                key={idx}
+                                onClick={() => handleAnswer(idx)}
+                                className="w-full text-left p-4 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50 transition-all text-slate-700"
+                            >
+                                {opt}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const Dashboard = ({ onNavigate }) => (
+            <div className="space-y-8">
+                {/* Hero Section */}
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-8 text-white shadow-lg">
+                    <h1 className="text-3xl font-bold mb-2">欢迎来到表面工程实验室 Wiki</h1>
+                    <p className="text-blue-100 max-w-2xl mb-6">
+                        这里汇集了最新的 SOP、仪器操作指南和安全规范。新成员请优先阅读“安全与EHS”板块并通过准入测试。
+                    </p>
+                    <div className="flex gap-3">
+                        <button onClick={() => onNavigate('sops')} className="bg-white text-blue-700 px-5 py-2.5 rounded-lg font-semibold hover:bg-blue-50 transition-colors shadow-sm">
+                            浏览 SOP
+                        </button>
+                        <button onClick={() => onNavigate('safety')} className="bg-blue-500 bg-opacity-30 text-white border border-white/20 px-5 py-2.5 rounded-lg font-semibold hover:bg-blue-500 hover:bg-opacity-50 transition-colors backdrop-blur-sm">
+                            安全准入测试
+                        </button>
+                    </div>
+                </div>
+
+                {/* Quick Access Grid */}
+                <div>
+                    <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
+                        常用文档
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                         {wikiData.slice(0, 3).map(doc => (
+                             <DocCard key={doc.id} doc={doc} onClick={() => onNavigate(doc.category, doc.id)} />
+                         ))}
+                    </div>
+                </div>
+                
+                 {/* Maintenance Alert */}
+                 <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-center gap-4">
+                    <div className="bg-orange-100 p-2 rounded-full">
+                        <Settings className="text-orange-600" size={24} />
+                    </div>
+                    <div className="flex-1">
+                        <h4 className="font-bold text-orange-800">设备维护提醒</h4>
+                        <p className="text-sm text-orange-700">接触角测量仪（Krüss）需在本周五前完成标准片校准。</p>
+                    </div>
+                    <button className="text-sm font-semibold text-orange-700 hover:underline">查看日志</button>
+                </div>
+            </div>
+        );
+
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [selectedDocId, setSelectedDocId] = useState(null);
+            const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+            const [searchQuery, setSearchQuery] = useState('');
+
+            const filteredDocs = useMemo(() => {
+                if (!searchQuery) return wikiData.filter(d => d.category === activeTab);
+                return wikiData.filter(d => 
+                    d.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                    d.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    d.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()))
+                );
+            }, [activeTab, searchQuery]);
+
+            const handleNavigate = (tab, docId = null) => {
+                setActiveTab(tab);
+                setSelectedDocId(docId);
+            };
+
+            const currentDoc = selectedDocId ? wikiData.find(d => d.id === selectedDocId) : null;
+
+            return (
+                <div className="flex h-screen bg-slate-50 overflow-hidden">
+                    <Sidebar 
+                        activeTab={activeTab} 
+                        setActiveTab={handleNavigate} 
+                        isOpen={isSidebarOpen} 
+                        setIsOpen={setIsSidebarOpen} 
+                    />
+
+                    <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+                        {/* Header */}
+                        <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0 z-10">
+                            <div className="flex items-center gap-4 flex-1">
+                                <button onClick={() => setIsSidebarOpen(true)} className="md:hidden text-slate-500">
+                                    <Menu size={24} />
+                                </button>
+                                <div className="relative w-full max-w-md">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                    <input 
+                                        type="text" 
+                                        placeholder="搜索 SOP、仪器或化学品..." 
+                                        className="w-full pl-10 pr-4 py-2 bg-slate-100 border-transparent focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 rounded-lg text-sm transition-all outline-none"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3 ml-4">
+                                <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs border border-blue-200">
+                                    Lab
+                                </div>
+                            </div>
+                        </header>
+
+                        {/* Content Area */}
+                        <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
+                            <div className="max-w-6xl mx-auto">
+                                {currentDoc ? (
+                                    <DocViewer doc={currentDoc} onBack={() => setSelectedDocId(null)} />
+                                ) : activeTab === 'dashboard' && !searchQuery ? (
+                                    <Dashboard onNavigate={handleNavigate} />
+                                ) : (
+                                    <div className="space-y-6 animate-in fade-in duration-300">
+                                        <div className="flex justify-between items-end">
+                                            <h2 className="text-2xl font-bold text-slate-800">
+                                                {searchQuery ? '搜索结果' : 
+                                                 activeTab === 'sops' ? '标准操作程序 (SOPs)' : 
+                                                 activeTab === 'instruments' ? '仪器设备' : 
+                                                 activeTab === 'safety' ? '安全与 EHS' : '数据管理'}
+                                            </h2>
+                                            {!searchQuery && <span className="text-slate-400 text-sm">{filteredDocs.length} 个文档</span>}
+                                        </div>
+
+                                        {/* Safety Quiz Special View */}
+                                        {activeTab === 'safety' && !searchQuery && !currentDoc && (
+                                            <div className="mb-8">
+                                                <SafetyQuiz />
+                                                <div className="my-8 border-t border-slate-200"></div>
+                                            </div>
+                                        )}
+
+                                        {filteredDocs.length > 0 ? (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                {filteredDocs.map(doc => (
+                                                    <DocCard key={doc.id} doc={doc} onClick={() => setSelectedDocId(doc.id)} />
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-20">
+                                                <div className="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                    <Search className="text-slate-400" size={32} />
+                                                </div>
+                                                <h3 className="text-slate-600 font-medium">没有找到相关文档</h3>
+                                                <p className="text-slate-400 text-sm mt-1">请尝试更换关键词，或联系管理员添加。</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
